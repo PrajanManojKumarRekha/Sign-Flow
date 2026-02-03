@@ -1,0 +1,12 @@
+names:
+- Backspace
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: asl-custom-gestures
+  url: https://universe.roboflow.com/prajan-9pzz4/asl-custom-gestures/dataset/1
+  version: 1
+  workspace: prajan-9pzz4
+test: ../test/images
+train: ../train/images
+val: ../valid/images

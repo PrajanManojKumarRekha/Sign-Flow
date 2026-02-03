@@ -1,0 +1,7 @@
+ultralytics
+opencv-python
+pyyaml
+torch
+torchvision
+inference-sdk>=0.9.18,<0.10.0
+python-dotenv>=1.0.0
