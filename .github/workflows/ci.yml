@@ -16,3 +16,7 @@ jobs:
       - run: pip install pytest ruff pyyaml
       - run: ruff check .
       - run: pytest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --test web/tests/*.test.js

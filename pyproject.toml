@@ -3,4 +3,4 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 110
-extend-exclude = ["ASL.v1i.yolov8", "ASL-Custom-Gestures-1", "ASL_Merged"]
+extend-exclude = ["web", "ASL.v1i.yolov8", "ASL-Custom-Gestures-1", "ASL_Merged"]
