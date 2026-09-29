@@ -1,29 +1,30 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
 .venv/
 venv/
-ENV/
+env/
+.pytest_cache/
+.ruff_cache/
 
-# Environment variables
+# Secrets / environment
 .env
-.env.local
+.env.*
 
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
-*.swo
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Generated artifacts (reproduce with merge_datasets.py / train_model.py)
+ASL_Merged/
+training_results/
+runs/
+*.cache
 *.log
-main.py
 *.zip
+
+# Base weights are downloaded automatically by ultralytics
+yolo*.pt

@@ -1,160 +1,104 @@
-"""
-Real-time ASL Inference Script
-"""
+"""Real-time ASL detection from a webcam."""
+
+import argparse
+import logging
+import time
+from pathlib import Path
 
 import cv2
-import time
 import numpy as np
-from ultralytics import YOLO
 
-# Configuration
-MODEL_PATH = "models/best_asl_27.pt"
-CONFIDENCE_THRESHOLD = 0.6
-DEBOUNCE_TIME = 1.5
+from asl.config import CLASS_NAMES, BACKSPACE, CONFIDENCE_THRESHOLD, DEFAULT_MODEL_PATH
+from asl.sentence_builder import SentenceBuilder
 
-CLASS_NAMES = [
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'backspace'
-]
+logger = logging.getLogger("runner")
 
-class SentenceBuilder:
-    def __init__(self):
-        self.text = ""
-        self.last_gesture = None
-        self.last_time = 0
-        
-    def add_character(self, char, current_time):
-        if char == self.last_gesture and (current_time - self.last_time) < DEBOUNCE_TIME:
-            return False
-        
-        if char == 'backspace':
-            if self.text:
-                self.text = self.text[:-1]
-                print(f"[BACKSPACE] → '{self.text}'")
-        else:
-            self.text += char
-            print(f"[+{char}] → '{self.text}'")
-        
-        self.last_gesture = char
-        self.last_time = current_time
-        return True
-    
-    def get_text(self):
-        return self.text if self.text else "[Empty]"
-    
-    def clear(self):
-        self.text = ""
-        print("[CLEARED]")
+FONT = cv2.FONT_HERSHEY_SIMPLEX
+PANEL_HEIGHT = 180
 
-def main():
-    print("\n" + "="*60)
-    print("ASL REAL-TIME DETECTION")
-    print("="*60)
-    
-    print(f"\nLoading model: {MODEL_PATH}")
-    try:
-        model = YOLO(MODEL_PATH)
-        print("✓ Model loaded")
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        print("\nRun: python train_model.py first")
-        return
-    
-    print("\nInitializing webcam...")
-    cap = cv2.VideoCapture(0)
+
+def draw_detection(frame, box, class_name: str, confidence: float) -> None:
+    x1, y1, x2, y2 = box
+    color = (0, 165, 255) if class_name == BACKSPACE else (0, 255, 0)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
+
+    label = f"{class_name} {confidence:.2f}"
+    (width, height), _ = cv2.getTextSize(label, FONT, 0.7, 2)
+    cv2.rectangle(frame, (x1, y1 - height - 10), (x1 + width + 10, y1), color, -1)
+    cv2.putText(frame, label, (x1 + 5, y1 - 5), FONT, 0.7, (255, 255, 255), 2)
+
+
+def build_panel(width: int, text: str) -> np.ndarray:
+    panel = np.full((PANEL_HEIGHT, width, 3), 40, dtype=np.uint8)
+    if len(text) > 50:
+        text = "..." + text[-47:]
+    cv2.putText(panel, "ASL Sentence Builder", (10, 30), FONT, 0.8, (100, 200, 255), 2)
+    cv2.rectangle(panel, (10, 45), (width - 10, 100), (60, 60, 60), -1)
+    cv2.putText(panel, text, (20, 80), FONT, 1.0, (255, 255, 255), 2)
+    cv2.putText(panel, "Q: Quit  |  C: Clear", (10, 130), FONT, 0.5, (150, 150, 150), 1)
+    return panel
+
+
+def run(model_path: Path, camera: int, confidence: float) -> None:
+    from ultralytics import YOLO
+
+    if not model_path.is_file():
+        raise SystemExit(f"Model not found: {model_path}. Run `python train_model.py` first.")
+    model = YOLO(str(model_path))
+
+    cap = cv2.VideoCapture(camera)
     if not cap.isOpened():
-        print("❌ Cannot access webcam!")
-        return
-    
+        raise SystemExit(f"Cannot access camera {camera}.")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    print("✓ Webcam ready")
-    
+
     builder = SentenceBuilder()
-    
-    print("\n" + "="*60)
-    print("CONTROLS: Q=Quit | C=Clear | S=Stats")
-    print("="*60 + "\n")
-    
-    fps_time = time.time()
-    fps_counter = 0
-    fps = 0
-    
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        frame = cv2.flip(frame, 1)
-        current_time = time.time()
-        
-        results = model(frame, conf=CONFIDENCE_THRESHOLD, verbose=False)
-        
-        for result in results:
-            boxes = result.boxes
-            for box in boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                confidence = float(box.conf[0])
-                class_id = int(box.cls[0])
-                class_name = CLASS_NAMES[class_id]
-                
-                color = (0, 165, 255) if class_name == 'backspace' else (0, 255, 0)
-                
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
-                
-                label = f"{class_name} {confidence:.2f}"
-                label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-                cv2.rectangle(frame, (x1, y1 - label_size[1] - 10), 
-                            (x1 + label_size[0] + 10, y1), color, -1)
-                cv2.putText(frame, label, (x1 + 5, y1 - 5),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                
-                if confidence >= CONFIDENCE_THRESHOLD:
-                    builder.add_character(class_name, current_time)
-        
-        fps_counter += 1
-        if current_time - fps_time > 1:
-            fps = fps_counter
-            fps_counter = 0
-            fps_time = current_time
-        
-        panel_height = 180
-        panel = np.zeros((panel_height, frame.shape[1], 3), dtype=np.uint8)
-        panel[:] = (40, 40, 40)
-        
-        cv2.putText(panel, "ASL Sentence Builder", (10, 30),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 200, 255), 2)
-        
-        text_display = builder.get_text()
-        if len(text_display) > 50:
-            text_display = "..." + text_display[-47:]
-        
-        cv2.rectangle(panel, (10, 45), (frame.shape[1] - 10, 100), (60, 60, 60), -1)
-        cv2.putText(panel, text_display, (20, 80),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-        
-        cv2.putText(panel, "Q: Quit  |  C: Clear", (10, 130),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
-        
-        cv2.putText(frame, f"FPS: {fps}", (10, 35),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
-        
-        combined = np.vstack([frame, panel])
-        cv2.imshow("ASL Detection", combined)
-        
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == ord('c'):
-            builder.clear()
-    
-    cap.release()
-    cv2.destroyAllWindows()
-    
-    print("\n" + "="*60)
-    print(f"Final text: {builder.text if builder.text else '[Empty]'}")
-    print("="*60 + "\n")
+    fps, frames, fps_start = 0, 0, time.time()
+
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                logger.warning("Camera returned no frame; stopping")
+                break
+            frame = cv2.flip(frame, 1)
+            now = time.time()
+
+            for result in model(frame, conf=confidence, verbose=False):
+                for box in result.boxes:
+                    xyxy = tuple(map(int, box.xyxy[0]))
+                    score = float(box.conf[0])
+                    name = CLASS_NAMES[int(box.cls[0])]
+                    draw_detection(frame, xyxy, name, score)
+                    builder.add_character(name, now)
+
+            frames += 1
+            if now - fps_start > 1:
+                fps, frames, fps_start = frames, 0, now
+            cv2.putText(frame, f"FPS: {fps}", (10, 35), FONT, 1.0, (0, 255, 0), 2)
+
+            cv2.imshow("ASL Detection", np.vstack([frame, build_panel(frame.shape[1], builder.get_text())]))
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
+            if key == ord("c"):
+                builder.clear()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+    logger.info("Final text: %s", builder.get_text())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_PATH)
+    parser.add_argument("--camera", type=int, default=0, help="camera index")
+    parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD, help="confidence threshold")
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    run(args.model, args.camera, args.conf)
+
 
 if __name__ == "__main__":
     main()

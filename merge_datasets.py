@@ -1,142 +1,108 @@
-"""
-Dataset Merger Script
-Combines A-Z and Backspace datasets into a single 27-class dataset
-"""
+"""Merge the A-Z and backspace datasets into a single 27-class YOLO dataset."""
 
-import os
+import argparse
+import logging
 import shutil
-import yaml
 from pathlib import Path
 
-# Configuration
-DATASET_A_Z = "ASL.v1i.yolov8"
-DATASET_BACKSPACE = "ASL-Custom-Gestures-1"
-MERGED_DATASET_DIR = "ASL_Merged"
+import yaml
 
-CLASS_NAMES = [
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'backspace'
-]
+from asl.config import (
+    CLASS_NAMES,
+    DATASET_A_Z,
+    DATASET_BACKSPACE,
+    IMAGE_EXTENSIONS,
+    MERGED_DATASET_DIR,
+    SPLITS,
+)
 
-class DatasetMerger:
-    def __init__(self):
-        self.merged_dir = MERGED_DATASET_DIR
-        
-    def create_directory_structure(self):
-        print("\n" + "="*60)
-        print("Creating Directory Structure")
-        print("="*60)
-        
-        for split in ['train', 'valid', 'test']:
-            os.makedirs(f"{self.merged_dir}/{split}/images", exist_ok=True)
-            os.makedirs(f"{self.merged_dir}/{split}/labels", exist_ok=True)
-        
-        print(f"✓ Created directory: {os.path.abspath(self.merged_dir)}")
-        
-    def copy_dataset(self, source_dir, class_offset=0, dataset_name=""):
-        print(f"\n📁 Copying {dataset_name} dataset...")
-        stats = {'train': 0, 'valid': 0, 'test': 0}
-        
-        for split in ['train', 'valid', 'test']:
-            src_img_dir = f"{source_dir}/{split}/images"
-            src_lbl_dir = f"{source_dir}/{split}/labels"
-            dst_img_dir = f"{self.merged_dir}/{split}/images"
-            dst_lbl_dir = f"{self.merged_dir}/{split}/labels"
-            
-            if not os.path.exists(src_img_dir):
-                print(f"  ⚠ Warning: {src_img_dir} not found, skipping...")
+logger = logging.getLogger("merge_datasets")
+
+
+def offset_label_file(src: Path, dst: Path, class_offset: int) -> None:
+    """Copy a YOLO label file, shifting every class id by ``class_offset``."""
+    if class_offset == 0:
+        shutil.copy2(src, dst)
+        return
+    lines = []
+    for line in src.read_text().splitlines():
+        parts = line.split()
+        if parts:
+            parts[0] = str(int(parts[0]) + class_offset)
+            lines.append(" ".join(parts))
+    dst.write_text("\n".join(lines) + ("\n" if lines else ""))
+
+
+def copy_dataset(source: Path, merged: Path, class_offset: int, prefix: str) -> dict:
+    """Copy one dataset into ``merged``, prefixing filenames to avoid collisions.
+
+    Image and label files share a stem, so both are renamed together and
+    always stay paired.
+    """
+    stats = {split: 0 for split in SPLITS}
+    for split in SPLITS:
+        src_images = source / split / "images"
+        src_labels = source / split / "labels"
+        if not src_images.is_dir():
+            logger.warning("%s not found, skipping", src_images)
+            continue
+
+        dst_images = merged / split / "images"
+        dst_labels = merged / split / "labels"
+        for image in sorted(src_images.iterdir()):
+            if image.suffix.lower() not in IMAGE_EXTENSIONS:
                 continue
-            
-            # Copy images
-            for img_file in os.listdir(src_img_dir):
-                if img_file.endswith(('.jpg', '.jpeg', '.png')):
-                    src_path = f"{src_img_dir}/{img_file}"
-                    dst_path = f"{dst_img_dir}/{img_file}"
-                    
-                    if os.path.exists(dst_path):
-                        base, ext = os.path.splitext(img_file)
-                        dst_path = f"{dst_img_dir}/{dataset_name}_{img_file}"
-                    
-                    shutil.copy2(src_path, dst_path)
-                    stats[split] += 1
-            
-            # Copy and adjust labels
-            if os.path.exists(src_lbl_dir):
-                for lbl_file in os.listdir(src_lbl_dir):
-                    if lbl_file.endswith('.txt'):
-                        src_path = f"{src_lbl_dir}/{lbl_file}"
-                        dst_path = f"{dst_lbl_dir}/{lbl_file}"
-                        
-                        if os.path.exists(dst_path):
-                            base, ext = os.path.splitext(lbl_file)
-                            dst_path = f"{dst_lbl_dir}/{dataset_name}_{lbl_file}"
-                        
-                        if class_offset == 0:
-                            shutil.copy2(src_path, dst_path)
-                        else:
-                            with open(src_path, 'r') as f:
-                                lines = f.readlines()
-                            
-                            with open(dst_path, 'w') as f:
-                                for line in lines:
-                                    parts = line.strip().split()
-                                    if parts:
-                                        class_id = int(parts[0]) + class_offset
-                                        parts[0] = str(class_id)
-                                        f.write(' '.join(parts) + '\n')
-        
-        print(f"  ✓ Train: {stats['train']} | Valid: {stats['valid']} | Test: {stats['test']}")
-        return stats
-    
-    def create_data_yaml(self):
-        print("\n" + "="*60)
-        print("Creating data.yaml")
-        print("="*60)
-        
-        data_yaml = {
-            'path': os.path.abspath(self.merged_dir),
-            'train': 'train/images',
-            'val': 'valid/images',
-            'test': 'test/images',
-            'nc': len(CLASS_NAMES),
-            'names': CLASS_NAMES
-        }
-        
-        yaml_path = f"{self.merged_dir}/data.yaml"
-        with open(yaml_path, 'w') as f:
-            yaml.dump(data_yaml, f, default_flow_style=False)
-        
-        print(f"✓ Created: {os.path.abspath(yaml_path)}")
-        print(f"Total Classes: {len(CLASS_NAMES)}")
-        
-    def merge(self):
-        print("\n" + "="*60)
-        print("ASL DATASET MERGER")
-        print("="*60)
-        
-        self.create_directory_structure()
-        
-        print("\n" + "="*60)
-        print("Merging Datasets")
-        print("="*60)
-        
-        stats_az = self.copy_dataset(DATASET_A_Z, class_offset=0, dataset_name="AZ")
-        stats_back = self.copy_dataset(DATASET_BACKSPACE, class_offset=26, dataset_name="backspace")
-        
-        total_train = stats_az['train'] + stats_back['train']
-        total_valid = stats_az['valid'] + stats_back['valid']
-        total_test = stats_az['test'] + stats_back['test']
-        
-        print(f"\n📈 Total Images:")
-        print(f"  Train: {total_train} | Valid: {total_valid} | Test: {total_test}")
-        
-        self.create_data_yaml()
-        
-        print("\n" + "="*60)
-        print("✅ DATASET MERGE COMPLETE!")
-        print("="*60)
+            stem = image.stem if not (dst_images / image.name).exists() else f"{prefix}_{image.stem}"
+            shutil.copy2(image, dst_images / f"{stem}{image.suffix}")
+
+            label = src_labels / f"{image.stem}.txt"
+            if label.is_file():
+                offset_label_file(label, dst_labels / f"{stem}.txt", class_offset)
+            else:
+                logger.warning("No label for %s", image)
+            stats[split] += 1
+    return stats
+
+
+def write_data_yaml(merged: Path) -> Path:
+    config = {
+        "path": str(merged.resolve()),
+        "train": "train/images",
+        "val": "valid/images",
+        "test": "test/images",
+        "nc": len(CLASS_NAMES),
+        "names": CLASS_NAMES,
+    }
+    yaml_path = merged / "data.yaml"
+    yaml_path.write_text(yaml.safe_dump(config, default_flow_style=False))
+    return yaml_path
+
+
+def merge(output: Path, force: bool = False) -> None:
+    if output.exists():
+        if not force:
+            raise SystemExit(f"{output} already exists; pass --force to rebuild it.")
+        shutil.rmtree(output)
+    for split in SPLITS:
+        (output / split / "images").mkdir(parents=True)
+        (output / split / "labels").mkdir(parents=True)
+
+    stats_az = copy_dataset(DATASET_A_Z, output, class_offset=0, prefix="AZ")
+    stats_back = copy_dataset(DATASET_BACKSPACE, output, class_offset=26, prefix="backspace")
+    for split in SPLITS:
+        logger.info("%s: %d images", split, stats_az[split] + stats_back[split])
+
+    logger.info("Wrote %s", write_data_yaml(output))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=MERGED_DATASET_DIR)
+    parser.add_argument("--force", action="store_true", help="overwrite an existing merged dataset")
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    merge(args.output, args.force)
+
 
 if __name__ == "__main__":
-    merger = DatasetMerger()
-    merger.merge()
+    main()
