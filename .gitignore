@@ -20,6 +20,7 @@ Thumbs.db
 
 # Generated artifacts (reproduce with merge_datasets.py / train_model.py)
 ASL_Merged/
+ASL-Punctuation/
 training_results/
 runs/
 *.cache

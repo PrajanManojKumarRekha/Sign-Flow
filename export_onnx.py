@@ -1,6 +1,7 @@
 """Export the trained weights to ONNX for the browser app (web/model/asl.onnx)."""
 
 import argparse
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -16,9 +17,12 @@ def export(weights: Path, output: Path, imgsz: int) -> Path:
 
     if not weights.is_file():
         raise SystemExit(f"Weights not found: {weights}. Run `python train_model.py` first.")
-    exported = Path(YOLO(str(weights)).export(format="onnx", imgsz=imgsz, opset=12, simplify=True))
+    model = YOLO(str(weights))
+    exported = Path(model.export(format="onnx", imgsz=imgsz, opset=12, simplify=True))
     output.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(exported, output)
+    classes = [model.names[i] for i in sorted(model.names)]
+    (output.parent / "classes.json").write_text(json.dumps(classes))
     logger.info("Wrote %s", output)
     return output
 

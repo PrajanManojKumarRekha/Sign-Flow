@@ -8,9 +8,11 @@ from pathlib import Path
 import yaml
 
 from asl.config import (
+    ALL_CLASS_NAMES,
     CLASS_NAMES,
     DATASET_A_Z,
     DATASET_BACKSPACE,
+    DATASET_PUNCTUATION,
     IMAGE_EXTENSIONS,
     MERGED_DATASET_DIR,
     SPLITS,
@@ -64,14 +66,14 @@ def copy_dataset(source: Path, merged: Path, class_offset: int, prefix: str) -> 
     return stats
 
 
-def write_data_yaml(merged: Path) -> Path:
+def write_data_yaml(merged: Path, class_names: list[str] = CLASS_NAMES) -> Path:
     config = {
         "path": str(merged.resolve()),
         "train": "train/images",
         "val": "valid/images",
         "test": "test/images",
-        "nc": len(CLASS_NAMES),
-        "names": CLASS_NAMES,
+        "nc": len(class_names),
+        "names": class_names,
     }
     yaml_path = merged / "data.yaml"
     yaml_path.write_text(yaml.safe_dump(config, default_flow_style=False))
@@ -88,11 +90,21 @@ def merge(output: Path, force: bool = False) -> None:
         (output / split / "labels").mkdir(parents=True)
 
     stats_az = copy_dataset(DATASET_A_Z, output, class_offset=0, prefix="AZ")
-    stats_back = copy_dataset(DATASET_BACKSPACE, output, class_offset=26, prefix="backspace")
+    stats = [
+        stats_az,
+        copy_dataset(DATASET_BACKSPACE, output, class_offset=len(CLASS_NAMES) - 1, prefix="backspace"),
+    ]
+    class_names = CLASS_NAMES
+    if DATASET_PUNCTUATION.is_dir():
+        stats.append(copy_dataset(DATASET_PUNCTUATION, output, class_offset=len(CLASS_NAMES), prefix="punct"))
+        class_names = ALL_CLASS_NAMES
+    else:
+        logger.warning("%s not found; run prepare_punctuation.py to add punctuation classes",
+                       DATASET_PUNCTUATION)
     for split in SPLITS:
-        logger.info("%s: %d images", split, stats_az[split] + stats_back[split])
+        logger.info("%s: %d images", split, sum(s[split] for s in stats))
 
-    logger.info("Wrote %s", write_data_yaml(output))
+    logger.info("Wrote %s (%d classes)", write_data_yaml(output, class_names), len(class_names))
 
 
 def main() -> None:

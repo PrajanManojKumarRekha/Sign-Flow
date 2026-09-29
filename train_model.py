@@ -16,7 +16,8 @@ from asl.config import (
 logger = logging.getLogger("train_model")
 
 
-def train(epochs: int, batch: int, imgsz: int, patience: int, device: str | None) -> Path:
+def train(epochs: int, batch: int, imgsz: int, patience: int, device: str | None,
+          base_model: str = BASE_MODEL) -> Path:
     import torch
     from ultralytics import YOLO
 
@@ -27,7 +28,7 @@ def train(epochs: int, batch: int, imgsz: int, patience: int, device: str | None
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     logger.info("Training on %s", device)
 
-    model = YOLO(BASE_MODEL)
+    model = YOLO(base_model)
     model.train(
         data=str(data_yaml),
         epochs=epochs,
@@ -60,9 +61,11 @@ def main() -> None:
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--patience", type=int, default=10, help="early-stopping patience")
     parser.add_argument("--device", default=None, help="e.g. cpu, 0 (default: auto)")
+    parser.add_argument("--model", default=BASE_MODEL,
+                        help="base weights; yolov8s.pt is larger and usually more accurate than the nano default")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    train(args.epochs, args.batch, args.imgsz, args.patience, args.device)
+    train(args.epochs, args.batch, args.imgsz, args.patience, args.device, args.model)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from asl.config import CLASS_NAMES, BACKSPACE, CONFIDENCE_THRESHOLD, DEFAULT_MODEL_PATH
+from asl.config import BACKSPACE, CONFIDENCE_THRESHOLD, DEFAULT_MODEL_PATH
 from asl.sentence_builder import SentenceBuilder
 
 logger = logging.getLogger("runner")
@@ -68,7 +68,7 @@ def run(model_path: Path, camera: int, confidence: float) -> None:
                 for box in result.boxes:
                     xyxy = tuple(map(int, box.xyxy[0]))
                     score = float(box.conf[0])
-                    name = CLASS_NAMES[int(box.cls[0])]
+                    name = model.names[int(box.cls[0])]
                     draw_detection(frame, xyxy, name, score)
                     builder.add_character(name, now)
 

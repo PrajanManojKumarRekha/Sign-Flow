@@ -38,3 +38,11 @@ def test_data_yaml(tmp_path):
     cfg = yaml.safe_load(md.write_data_yaml(tmp_path).read_text())
     assert cfg["nc"] == len(CLASS_NAMES) == 27
     assert cfg["names"][-1] == "backspace"
+
+
+def test_data_yaml_with_punctuation(tmp_path):
+    from asl.config import ALL_CLASS_NAMES
+
+    cfg = yaml.safe_load(md.write_data_yaml(tmp_path, ALL_CLASS_NAMES).read_text())
+    assert cfg["nc"] == 32
+    assert cfg["names"][26] == "backspace" and cfg["names"][27] == "space"

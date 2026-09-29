@@ -2,7 +2,7 @@
 
 import logging
 
-from asl.config import BACKSPACE, DEBOUNCE_TIME
+from asl.config import BACKSPACE, DEBOUNCE_TIME, GESTURE_TEXT
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,12 @@ class SentenceBuilder:
 
         if char == BACKSPACE:
             self.text = self.text[:-1]
+        elif char == "space":
+            if self.text and not self.text.endswith((" ", "\n")):
+                self.text += " "
+        elif char in GESTURE_TEXT:
+            # Punctuation and line breaks attach to the previous word.
+            self.text = self.text.rstrip(" ") + GESTURE_TEXT[char] if self.text else self.text
         else:
             self.text += char
         logger.info("Gesture %r -> %r", char, self.text)

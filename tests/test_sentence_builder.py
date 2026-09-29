@@ -31,3 +31,17 @@ def test_clear_resets_debounce():
     b.add_character("A", 0)
     b.clear()
     assert b.add_character("A", 0.1)
+
+
+def test_punctuation_gestures_attach_to_previous_word():
+    b = SentenceBuilder(debounce_time=1.0)
+    for i, g in enumerate(["H", "I", "space", "space", "exclamation_mark", "space", "K"]):
+        b.add_character(g, float(i) * 2)
+    assert b.text == "HI! K"
+
+
+def test_leading_punctuation_and_space_are_ignored():
+    b = SentenceBuilder(debounce_time=1.0)
+    b.add_character("space", 0)
+    b.add_character("full_stop", 2)
+    assert b.text == ""

@@ -1,21 +1,18 @@
 import { decode } from "./postprocess.js";
 
-export const CLASS_NAMES = [
-  ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-  "backspace",
-];
-
 const SIZE = 640;
 
 export class Detector {
   constructor() {
     this.session = null;
+    this.classNames = [];
     this.canvas = document.createElement("canvas");
     this.canvas.width = this.canvas.height = SIZE;
     this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
   }
 
-  async load(modelUrl) {
+  async load(modelUrl, classesUrl) {
+    this.classNames = await (await fetch(classesUrl)).json();
     ort.env.wasm.wasmPaths = new URL("../vendor/", import.meta.url).href;
     ort.env.wasm.numThreads = 1; // multi-threading needs cross-origin isolation
     this.session = await ort.InferenceSession.create(modelUrl, {
@@ -57,7 +54,7 @@ export class Detector {
     const [, channels, numBoxes] = out.dims;
     return decode(out.data, numBoxes, channels - 4, letterbox, scoreThreshold).map((d) => ({
       ...d,
-      label: CLASS_NAMES[d.classId],
+      label: this.classNames[d.classId],
     }));
   }
 }

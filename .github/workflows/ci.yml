@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install pytest ruff pyyaml
+      - run: pip install pytest ruff pyyaml numpy opencv-python-headless
       - run: ruff check .
       - run: pytest
       - uses: actions/setup-node@v4
