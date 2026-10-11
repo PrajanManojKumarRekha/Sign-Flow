@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign-Flow</title>
+  <meta name="description" content="Real-time ASL fingerspelling to text and speech, running entirely in your browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ctext y=%2726%27 font-size=%2726%27%3E%F0%9F%A4%9F%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sign-Flow</h1>
+    <p>ASL fingerspelling to text &amp; speech. Video never leaves your device.</p>
+  </header>
+
+  <main class="layout">
+    <section class="camera" aria-label="Camera">
+      <div class="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div id="status" class="status" role="status">Click “Start camera” to begin.</div>
+        <div id="hold" class="hold" hidden><span id="holdLabel"></span><i id="holdBar"></i></div>
+      </div>
+      <div class="row">
+        <button id="startBtn" class="primary">Start camera</button>
+        <label class="slider">Sensitivity
+          <input id="confidence" type="range" min="0.3" max="0.9" step="0.05" value="0.6">
+          <output id="confidenceOut">0.60</output>
+        </label>
+        <label class="slider">Hold time
+          <input id="holdTime" type="range" min="300" max="1500" step="100" value="600">
+          <output id="holdTimeOut">0.6s</output>
+        </label>
+      </div>
+    </section>
+
+    <section class="composer" aria-label="Message">
+      <div id="output" class="output" aria-live="polite" tabindex="0"></div>
+      <div class="row keys" role="group" aria-label="Punctuation and controls">
+        <button data-act="space" title="Space (Space)">Space</button>
+        <button data-act="." title="Full stop (.)">.</button>
+        <button data-act="?" title="Question mark (?)">?</button>
+        <button data-act="!" title="Exclamation mark (!)">!</button>
+        <button data-act="," title="Comma (,)">,</button>
+        <button data-act="newline" title="New line (Enter)">↵</button>
+        <button data-act="backspace" title="Backspace (Backspace)">⌫</button>
+        <button data-act="clear" title="Clear all (Esc)">Clear</button>
+      </div>
+      <div class="row">
+        <button id="speakBtn" class="primary">🔊 Speak</button>
+        <button id="copyBtn">Copy</button>
+        <label class="check"><input id="autoSpeak" type="checkbox" checked> Speak each sentence</label>
+      </div>
+      <details class="help">
+        <summary>How to use</summary>
+        <ul>
+          <li>Face the camera with good lighting and a plain background.</li>
+          <li>Hold each letter steady until the ring fills. Lower your hand to repeat the same letter.</li>
+          <li>The <b>backspace</b> gesture deletes a character. Punctuation and spaces use the buttons or keyboard for now.</li>
+          <li>J and Z involve motion and are less reliable in single-frame detection.</li>
+        </ul>
+      </details>
+    </section>
+  </main>
+
+  <script src="vendor/ort.wasm.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
