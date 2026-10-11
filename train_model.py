@@ -1,146 +1,69 @@
-"""
-YOLOv8 Training Script
-Trains the ASL detection model on merged dataset
-"""
+"""Train the YOLOv8 ASL detector on the merged dataset."""
 
-import os
-import torch
-from ultralytics import YOLO
-from datetime import datetime
+import argparse
+import logging
+import shutil
+from pathlib import Path
 
-# Configuration
-MERGED_DATASET_DIR = "ASL_Merged"
-MODEL_SIZE = "yolov8n.pt"
-EPOCHS = 100
-BATCH_SIZE = 16
-IMAGE_SIZE = 640
-PATIENCE = 10
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-OUTPUT_DIR = "training_results"
-MODEL_SAVE_PATH = "models"
+from asl.config import (
+    BASE_MODEL,
+    DEFAULT_MODEL_PATH,
+    MERGED_DATASET_DIR,
+    RUN_NAME,
+    TRAINING_OUTPUT_DIR,
+)
 
-class ASLTrainer:
-    def __init__(self):
-        self.model = None
-        self.results = None
-        self.data_yaml = f"{MERGED_DATASET_DIR}/data.yaml"
-        
-    def check_setup(self):
-        print("\n" + "="*60)
-        print("PRE-TRAINING CHECKS")
-        print("="*60)
-        
-        if not os.path.exists(MERGED_DATASET_DIR):
-            print("❌ Merged dataset not found!")
-            print("   Please run: python merge_datasets.py first")
-            return False
-        
-        if not os.path.exists(self.data_yaml):
-            print("❌ data.yaml not found!")
-            return False
-        
-        import torch
-        cuda_available = torch.cuda.is_available()
-        
-        if cuda_available:
-            gpu_name = torch.cuda.get_device_name(0)
-            print(f"✓ GPU Available: {gpu_name}")
-        else:
-            print("⚠ GPU not detected - using CPU (slower)")
-        
-        print(f"✓ Merged dataset found")
-        print(f"✓ Model: {MODEL_SIZE}")
-        print(f"✓ Epochs: {EPOCHS}")
-        print(f"✓ Batch Size: {BATCH_SIZE}")
-        
-        return True
-    
-    def load_model(self):
-        print("\n" + "="*60)
-        print("LOADING MODEL")
-        print("="*60)
-        
-        print(f"Loading {MODEL_SIZE}...")
-        self.model = YOLO(MODEL_SIZE)
-        print(f"✓ Model loaded\n")
-    
-    def train(self):
-        print("="*60)
-        print("STARTING TRAINING")
-        print("="*60)
-        print(f"⏰ Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*60 + "\n")
-        
-        os.makedirs(MODEL_SAVE_PATH, exist_ok=True)
-        
-        self.results = self.model.train(
-            data=self.data_yaml,
-            epochs=EPOCHS,
-            imgsz=IMAGE_SIZE,
-            batch=BATCH_SIZE,
-            name='asl_27_classes',
-            patience=PATIENCE,
-            save=True,
-            project=OUTPUT_DIR,
-            device=DEVICE,
-            verbose=True,
-            plots=True
-        )
-        
-        print("\n" + "="*60)
-        print("✅ TRAINING COMPLETE!")
-        print("="*60)
-    
-    def validate(self):
-        print("\n" + "="*60)
-        print("VALIDATION")
-        print("="*60)
-        
-        metrics = self.model.val()
-        
-        print(f"\n📊 Validation Results:")
-        print(f"  mAP@0.5:    {metrics.box.map50:.3f}")
-        print(f"  mAP@0.5-95: {metrics.box.map:.3f}")
-        print(f"  Precision:  {metrics.box.mp:.3f}")
-        print(f"  Recall:     {metrics.box.mr:.3f}")
-        
-        if metrics.box.map50 >= 0.85:
-            print("\n✅ Excellent performance!")
-        elif metrics.box.map50 >= 0.70:
-            print("\n✓ Good performance")
-        else:
-            print("\n⚠ Consider more data or training")
-    
-    def save_final_model(self):
-        print("\n" + "="*60)
-        print("SAVING MODEL")
-        print("="*60)
-        
-        import shutil
-        
-        best_model_src = f"{OUTPUT_DIR}/asl_27_classes/weights/best.pt"
-        best_model_dst = f"{MODEL_SAVE_PATH}/best_asl_27.pt"
-        
-        if os.path.exists(best_model_src):
-            shutil.copy(best_model_src, best_model_dst)
-            print(f"✓ Model saved to: {os.path.abspath(best_model_dst)}")
-        
-    def run(self):
-        if not self.check_setup():
-            return False
-        
-        self.load_model()
-        self.train()
-        self.validate()
-        self.save_final_model()
-        
-        print("\n" + "="*60)
-        print("🎉 TRAINING COMPLETE!")
-        print("="*60)
-        print("\nNext: python inference.py\n")
-        
-        return True
+logger = logging.getLogger("train_model")
+
+
+def train(epochs: int, batch: int, imgsz: int, patience: int, device: str | None) -> Path:
+    import torch
+    from ultralytics import YOLO
+
+    data_yaml = MERGED_DATASET_DIR / "data.yaml"
+    if not data_yaml.is_file():
+        raise SystemExit(f"{data_yaml} not found. Run `python merge_datasets.py` first.")
+
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info("Training on %s", device)
+
+    model = YOLO(BASE_MODEL)
+    model.train(
+        data=str(data_yaml),
+        epochs=epochs,
+        imgsz=imgsz,
+        batch=batch,
+        patience=patience,
+        name=RUN_NAME,
+        project=str(TRAINING_OUTPUT_DIR),
+        device=device,
+        plots=True,
+    )
+
+    metrics = model.val()
+    logger.info(
+        "mAP@0.5=%.3f mAP@0.5-95=%.3f precision=%.3f recall=%.3f",
+        metrics.box.map50, metrics.box.map, metrics.box.mp, metrics.box.mr,
+    )
+
+    best = Path(model.trainer.best)
+    DEFAULT_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(best, DEFAULT_MODEL_PATH)
+    logger.info("Best weights saved to %s", DEFAULT_MODEL_PATH)
+    return DEFAULT_MODEL_PATH
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--batch", type=int, default=16, help="reduce if out of GPU memory")
+    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--patience", type=int, default=10, help="early-stopping patience")
+    parser.add_argument("--device", default=None, help="e.g. cpu, 0 (default: auto)")
+    args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    train(args.epochs, args.batch, args.imgsz, args.patience, args.device)
+
 
 if __name__ == "__main__":
-    trainer = ASLTrainer()
-    trainer.run()
+    main()

@@ -1,0 +1,30 @@
+"""Shared configuration for dataset merging, training and inference."""
+
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+CLASS_NAMES = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "backspace",
+]
+BACKSPACE = "backspace"
+
+# Source datasets (inputs to merge_datasets.py) and the merged output.
+DATASET_A_Z = ROOT_DIR / "ASL.v1i.yolov8"
+DATASET_BACKSPACE = ROOT_DIR / "ASL-Custom-Gestures-1" / "ASL-Custom-Gestures-1"
+MERGED_DATASET_DIR = ROOT_DIR / "ASL_Merged"
+SPLITS = ("train", "valid", "test")
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+
+# Training defaults.
+BASE_MODEL = "yolov8n.pt"
+RUN_NAME = "asl_27_classes"
+TRAINING_OUTPUT_DIR = ROOT_DIR / "training_results"
+MODEL_DIR = ROOT_DIR / "models"
+DEFAULT_MODEL_PATH = MODEL_DIR / "best_asl_27.pt"
+
+# Inference defaults.
+CONFIDENCE_THRESHOLD = 0.6
+DEBOUNCE_TIME = 1.5
