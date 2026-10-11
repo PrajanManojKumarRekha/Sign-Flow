@@ -55,7 +55,7 @@ def yolo_label(class_id: int, box: tuple, width: int, height: int) -> str:
 def split_bounds(n: int) -> dict[str, range]:
     train_end = int(n * SPLITS[0][1])
     valid_end = train_end + int(n * SPLITS[1][1])
-    return {"train": range(0, train_end), "valid": range(train_end, valid_end), "test": range(valid_end, n)}
+    return {"train": range(train_end), "valid": range(train_end, valid_end), "test": range(valid_end, n)}
 
 
 def prepare(source: Path, output: Path, force: bool) -> dict:
