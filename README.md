@@ -19,7 +19,9 @@ Sign-Flow/
 ├── models/best_asl_27.pt     # Trained 27-class weights
 ├── tests/                    # pytest suite
 ├── merge_datasets.py         # Build ASL_Merged/ from the source datasets
+├── prepare_punctuation.py    # Webcam captures -> labeled punctuation dataset
 ├── train_model.py            # Train and export best weights
+├── evaluate_model.py         # Per-class accuracy report
 ├── export_onnx.py            # Export weights to web/model/asl.onnx
 ├── Runner.py                 # Real-time webcam inference
 ├── requirements.txt          # Runtime dependencies
@@ -60,14 +62,19 @@ python Runner.py --camera 1 --conf 0.7
 
 Keys: `Q` quit, `C` clear the sentence. Hold each gesture steady; repeats of the same letter within 1.5 s are ignored.
 
-**Retrain** (optional):
+**Retrain** (optional; a GPU is strongly recommended):
 
 ```bash
-python merge_datasets.py              # add --force to rebuild
+python prepare_punctuation.py         # optional: adds space . ? ! newline classes (32 total)
+python merge_datasets.py --force      # picks up ASL-Punctuation/ automatically
 python train_model.py --epochs 100 --batch 16   # lower --batch if out of GPU memory
+python evaluate_model.py              # per-class precision/recall, worst first
+python export_onnx.py                 # refresh the browser model and its class list
 ```
 
-Best weights are copied to `models/best_asl_27.pt`.
+Best weights are copied to `models/best_asl_27.pt`. The browser app and `Runner.py` read class names from the model, so a 32-class model needs no code changes: punctuation gestures type `. ? !`, spaces and line breaks directly.
+
+Punctuation labels are weak (the capture guide box) and all come from one person and room, so treat that model as a prototype and collect varied data (more people, lighting and backgrounds) before relying on it.
 
 **Collect new gesture images:**
 

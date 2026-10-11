@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <button id="exitCaptions" class="exit-captions" hidden>Exit captions</button>
   <header class="topbar">
     <h1>Sign-Flow</h1>
     <p>ASL fingerspelling to text &amp; speech. Video never leaves your device.</p>
@@ -50,6 +51,7 @@
       <div class="row">
         <button id="speakBtn" class="primary">🔊 Speak</button>
         <button id="copyBtn">Copy</button>
+        <button id="captionsBtn" title="Large-text view to share in a meeting">Captions view</button>
         <label class="check"><input id="autoSpeak" type="checkbox" checked> Speak each sentence</label>
       </div>
       <details class="help">
@@ -58,6 +60,7 @@
           <li>Face the camera with good lighting and a plain background.</li>
           <li>Hold each letter steady until the ring fills. Lower your hand to repeat the same letter.</li>
           <li>The <b>backspace</b> gesture deletes a character. Punctuation and spaces use the buttons or keyboard for now.</li>
+          <li><b>Meetings:</b> open Captions view, then share this window or tab in Zoom, Meet or Teams. Others see your message in large text.</li>
           <li>J and Z involve motion and are less reliable in single-frame detection.</li>
         </ul>
       </details>

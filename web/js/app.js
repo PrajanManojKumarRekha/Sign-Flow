@@ -15,6 +15,16 @@ let running = false;
 
 const PUNCTUATION = new Set([".", "?", "!", ","]);
 
+// Model class labels that are not letters, mapped to composer actions.
+const GESTURE_ACTIONS = {
+  backspace: "backspace",
+  space: "space",
+  full_stop: ".",
+  question_mark: "?",
+  exclamation_mark: "!",
+  next_line: "newline",
+};
+
 function setStatus(msg) {
   $("status").textContent = msg;
 }
@@ -56,7 +66,7 @@ function drawDetections(dets) {
   octx.clearRect(0, 0, w, h);
   octx.lineWidth = Math.max(2, w / 300);
   for (const d of dets) {
-    const color = d.label === "backspace" ? "#ffb020" : "#3ddc84";
+    const color = d.label in GESTURE_ACTIONS ? "#ffb020" : "#3ddc84";
     octx.strokeStyle = color;
     octx.strokeRect(d.x1, d.y1, d.x2 - d.x1, d.y2 - d.y1);
   }
@@ -79,7 +89,7 @@ async function loop() {
     const top = dets[0] ?? null;
     const committed = stabilizer.update(top ? top.label : null, performance.now());
     showHold(top?.label, stabilizer.progress);
-    if (committed) apply(committed);
+    if (committed) apply(GESTURE_ACTIONS[committed] ?? committed);
     setStatus(top ? `Seeing ${top.label} (${Math.round(top.score * 100)}%) · ${Math.round(performance.now() - t0)} ms` : "No hand detected");
   } catch (err) {
     console.error(err);
@@ -93,7 +103,10 @@ async function start() {
   btn.disabled = true;
   try {
     setStatus("Loading model…");
-    if (!detector.session) await detector.load(new URL("../model/asl.onnx", import.meta.url).href);
+    if (!detector.session) await detector.load(
+      new URL("../model/asl.onnx", import.meta.url).href,
+      new URL("../model/classes.json", import.meta.url).href,
+    );
     setStatus("Requesting camera…");
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
@@ -137,6 +150,13 @@ $("holdTime").addEventListener("input", (e) => {
   stabilizer.holdMs = Number(e.target.value);
   $("holdTimeOut").textContent = `${(stabilizer.holdMs / 1000).toFixed(1)}s`;
 });
+
+function setCaptions(on) {
+  document.body.classList.toggle("captions", on);
+  $("exitCaptions").hidden = !on;
+}
+$("captionsBtn").addEventListener("click", () => setCaptions(true));
+$("exitCaptions").addEventListener("click", () => setCaptions(false));
 
 $("speakBtn").addEventListener("click", () => speak(composer.text));
 $("copyBtn").addEventListener("click", async () => {
