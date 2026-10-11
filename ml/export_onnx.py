@@ -1,4 +1,4 @@
-"""Export the trained weights to ONNX for the browser app (web/model/asl.onnx)."""
+"""Export the trained weights to ONNX for the browser app (apps/web/model/asl.onnx)."""
 
 import argparse
 import json
@@ -6,10 +6,10 @@ import logging
 import shutil
 from pathlib import Path
 
-from asl.config import DEFAULT_MODEL_PATH, ROOT_DIR
+from asl.config import DEFAULT_MODEL_PATH, REPO_DIR
 
 logger = logging.getLogger("export_onnx")
-WEB_MODEL = ROOT_DIR / "web" / "model" / "asl.onnx"
+WEB_MODEL = REPO_DIR / "apps" / "web" / "model" / "asl.onnx"
 
 
 def export(weights: Path, output: Path, imgsz: int) -> Path:

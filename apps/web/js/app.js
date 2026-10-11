@@ -1,13 +1,11 @@
-import { Detector } from "./detector.js";
-import { Composer } from "./sentence.js";
-import { Stabilizer } from "./stabilizer.js";
+import { Composer, Stabilizer, YoloDetector } from "@sign-flow/engine";
 
 const $ = (id) => document.getElementById(id);
 const video = $("video");
 const overlay = $("overlay");
 const octx = overlay.getContext("2d");
 
-const detector = new Detector();
+const detector = new YoloDetector();
 const composer = new Composer();
 const stabilizer = new Stabilizer();
 let confidence = 0.6;
@@ -106,6 +104,7 @@ async function start() {
     if (!detector.session) await detector.load(
       new URL("../model/asl.onnx", import.meta.url).href,
       new URL("../model/classes.json", import.meta.url).href,
+      { wasmPaths: new URL("../vendor/", import.meta.url).href },
     );
     setStatus("Requesting camera…");
     const stream = await navigator.mediaDevices.getUserMedia({

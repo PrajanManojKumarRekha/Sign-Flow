@@ -42,7 +42,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("class_name", help="gesture label, e.g. space")
     parser.add_argument("--camera", type=int, default=0)
-    parser.add_argument("--output", type=Path, default=Path(__file__).parent / "custom_data")
+    parser.add_argument("--output", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "datasets" / "punctuation_captures")
     args = parser.parse_args()
     collect(args.class_name, args.camera, args.output)
 

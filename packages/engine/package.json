@@ -1,0 +1,13 @@
+{
+  "name": "@sign-flow/engine",
+  "version": "0.1.0",
+  "description": "On-device ASL fingerspelling recognition and text composition, shared by every Sign-Flow app.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Composer } from "../js/sentence.js";
-import { Stabilizer } from "../js/stabilizer.js";
-import { decode, iou, nms } from "../js/postprocess.js";
+import { Composer } from "../src/sentence.js";
+import { Stabilizer } from "../src/stabilizer.js";
+import { decode, iou, nms } from "../src/postprocess.js";
 
 const type = (c, s) => [...s].forEach((ch) => c.addLetter(ch));
 

@@ -1,0 +1,14 @@
+{
+  "name": "sign-flow",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "dev": "node scripts/build-web.mjs && node scripts/serve.mjs",
+    "test": "node --test \"packages/engine/test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

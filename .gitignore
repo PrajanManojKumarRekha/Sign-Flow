@@ -18,11 +18,13 @@ env/
 .DS_Store
 Thumbs.db
 
-# Generated artifacts (reproduce with merge_datasets.py / train_model.py)
-ASL_Merged/
-ASL-Punctuation/
-training_results/
+# Generated artifacts (reproduce with the scripts in ml/ and `npm run build`)
+ml/datasets/merged/
+ml/datasets/punctuation/
+ml/training_results/
 runs/
+dist/
+node_modules/
 *.cache
 *.log
 *.zip

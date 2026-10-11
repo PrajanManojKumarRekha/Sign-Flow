@@ -1,112 +1,92 @@
 # Sign-Flow
 
-Real-time American Sign Language (ASL) letter detection with YOLOv8. It recognises the 26 letters A–Z plus a `backspace` gesture and assembles them into text from a webcam feed.
+On-device American Sign Language (ASL) fingerspelling to text and speech. Sign letters in front of your camera and Sign-Flow builds sentences you can show in a meeting or have read aloud.
 
-## Project structure
+**Privacy:** recognition runs entirely in your browser or on your machine. Camera video is never uploaded, recorded or stored.
+
+> Status: early MVP. It recognises fingerspelled letters A–Z plus a backspace gesture; accuracy varies by letter (see [Roadmap](docs/ROADMAP.md)). It is an accessibility aid, not a full ASL translator.
+
+## Repository layout
 
 ```
 Sign-Flow/
-├── asl/                      # Shared package
-│   ├── config.py             #   class names, paths, defaults
-│   └── sentence_builder.py   #   gesture -> text with debouncing
-├── web/                      # Browser app (runs the model client-side via ONNX)
-│   ├── index.html, css/, js/ #   UI, detector, sentence composer, tests in tests/
-│   ├── model/asl.onnx        #   exported model
-│   └── vendor/               #   onnxruntime-web (wasm build)
-├── OpenCV collector/         # Webcam capture tool for new gesture data
-├── ASL.v1i.yolov8/           # Source dataset: letters A–Z
-├── ASL-Custom-Gestures-1/    # Source dataset: backspace gesture
-├── models/best_asl_27.pt     # Trained 27-class weights
-├── tests/                    # pytest suite
-├── merge_datasets.py         # Build ASL_Merged/ from the source datasets
-├── prepare_punctuation.py    # Webcam captures -> labeled punctuation dataset
-├── train_model.py            # Train and export best weights
-├── evaluate_model.py         # Per-class accuracy report
-├── export_onnx.py            # Export weights to web/model/asl.onnx
-├── Runner.py                 # Real-time webcam inference
-├── requirements.txt          # Runtime dependencies
-└── requirements-dev.txt      # + pytest, ruff
+├── apps/
+│   └── web/                  # Browser app (UI, model, onnxruntime-web)
+├── packages/
+│   └── engine/               # @sign-flow/engine: recognition + text logic shared by all apps
+├── ml/                       # Python: datasets, training, evaluation, export, desktop demo
+│   ├── asl/                  #   shared config and sentence builder
+│   ├── datasets/             #   source datasets and raw webcam captures
+│   ├── models/               #   trained weights (best_asl_27.pt)
+│   ├── tools/                #   data collection
+│   └── tests/
+├── scripts/                  # build-web.mjs, serve.mjs
+├── docs/                     # Roadmap
+└── .github/workflows/        # CI and GitHub Pages deploy
 ```
 
-`ASL_Merged/`, `training_results/` and base weights (`yolov8n.pt`) are generated and git-ignored.
+## Web app
 
-## Setup
-
-Requires Python 3.9+ and a webcam. An NVIDIA GPU is optional but speeds up training.
+Requires Node.js 20+ and a webcam. No `npm install` is needed.
 
 ```bash
-git clone https://github.com/PrajanManojKumarRekha/Sign-Flow.git
-cd Sign-Flow
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+npm run dev        # builds dist/web and serves it at http://localhost:8000
+```
+
+Click **Start camera**, then hold a letter steady until the ring fills. Lower your hand to repeat the same letter. Sentences are auto-capitalised and punctuation attaches to the previous word. Space and punctuation use the on-screen buttons or keyboard (`Space`, `.`, `?`, `!`, `,`, `Enter`, `Backspace`, `Esc`) until those gestures are trained into the model.
+
+**In a meeting:** open **Captions view** and share that window or tab in Zoom, Google Meet or Teams. Use **Speak** or *Speak each sentence* to have messages read aloud.
+
+Every push to `main` deploys the app to GitHub Pages (enable it once under *Settings → Pages → Source: GitHub Actions*).
+
+## Training and model work (`ml/`)
+
+Requires Python 3.10+; a CUDA GPU is strongly recommended for training.
+
+```bash
+cd ml
 pip install -r requirements.txt
-```
 
-## Web app (translator MVP)
-
-Runs entirely in the browser: the camera stream is processed on-device and never uploaded.
-
-```bash
-python -m http.server 8000 -d web     # then open http://localhost:8000
-```
-
-The camera needs `localhost` or HTTPS. Hold a letter steady until the ring fills to type it; lower your hand to repeat the same letter. Sentences are auto-capitalised, punctuation attaches to the previous word, and finished sentences can be spoken aloud. Space and punctuation currently use the on-screen buttons or keyboard (`Space`, `.`, `?`, `!`, `,`, `Enter`, `Backspace`, `Esc`) until those gestures are trained into the model. After retraining, refresh the browser model with `python export_onnx.py`.
-
-## Desktop usage
-
-**Run detection** using the bundled model:
-
-```bash
-python Runner.py                      # defaults
-python Runner.py --camera 1 --conf 0.7
-```
-
-Keys: `Q` quit, `C` clear the sentence. Hold each gesture steady; repeats of the same letter within 1.5 s are ignored.
-
-**Retrain** (optional; a GPU is strongly recommended):
-
-```bash
 python prepare_punctuation.py         # optional: adds space . ? ! newline classes (32 total)
-python merge_datasets.py --force      # picks up ASL-Punctuation/ automatically
-python train_model.py --epochs 100 --batch 16   # lower --batch if out of GPU memory
+python merge_datasets.py --force      # builds datasets/merged
+python train_model.py --epochs 100 --batch 16 --model yolov8s.pt
 python evaluate_model.py              # per-class precision/recall, worst first
-python export_onnx.py                 # refresh the browser model and its class list
+python export_onnx.py                 # refreshes apps/web/model/
 ```
 
-Best weights are copied to `models/best_asl_27.pt`. The browser app and `Runner.py` read class names from the model, so a 32-class model needs no code changes: punctuation gestures type `. ? !`, spaces and line breaks directly.
+The web app and the desktop demo read class names from the model, so a model with punctuation classes needs no code changes.
 
-Punctuation labels are weak (the capture guide box) and all come from one person and room, so treat that model as a prototype and collect varied data (more people, lighting and backgrounds) before relying on it.
-
-**Collect new gesture images:**
+Other tools:
 
 ```bash
-python "OpenCV collector/Datacollection.py" space   # C = capture, Q = quit
+python run_webcam.py                  # desktop OpenCV demo (Q quit, C clear)
+python tools/collect_gestures.py space   # capture new gesture images (C capture, Q quit)
 ```
+
+Punctuation labels are weak (the capture guide box) and come from one person and room; collect varied data before relying on that model.
 
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt
-ruff check .
-pytest
-node --test web/tests/*.test.js      # web app logic (Node 18+)
+npm test                              # engine unit tests
+cd ml && pip install -r requirements-dev.txt && ruff check . && pytest
 ```
 
-CI runs all three on every push and pull request.
+CI runs both on every push to `main` and `develop` and on pull requests. Work happens on `develop`; `main` is what gets deployed.
 
 ## Troubleshooting
 
 | Problem | Fix |
 | --- | --- |
-| `Cannot access camera` | Close other apps using it, check OS permissions, or try `--camera 1`. |
-| `data.yaml not found` | Run `python merge_datasets.py` first. |
+| Camera does not start | The page must be on `localhost` or HTTPS. Close other apps using the camera and check browser permissions. |
+| Letter not recognised | Some letters are weaker (I, Q, Y, P, N, S, T; J and Z need motion). Adjust Sensitivity, improve lighting, use a plain background. |
+| `data.yaml not found` | Run `python merge_datasets.py` in `ml/` first. |
 | CUDA out of memory | Use `--batch 8` or lower. |
-| Letter not recognised | The model is weaker on some letters (e.g. A, and motion letters J/Z). Adjust the Sensitivity slider, improve lighting, or add training data. |
-| Poor accuracy | Improve lighting, use a plain background, or add training data. |
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Bundled onnxruntime-web is MIT licensed (see `apps/web/vendor/NOTICE.txt`).
 
 ## Acknowledgments
 
-[Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics), [OpenCV](https://opencv.org/), and the Roboflow community datasets used for training.
+[Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), and the Roboflow community datasets used for training.

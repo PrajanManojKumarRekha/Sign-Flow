@@ -2,7 +2,8 @@ import { decode } from "./postprocess.js";
 
 const SIZE = 640;
 
-export class Detector {
+// Browser-only: needs onnxruntime-web loaded as the global `ort`, and a DOM canvas.
+export class YoloDetector {
   constructor() {
     this.session = null;
     this.classNames = [];
@@ -11,9 +12,10 @@ export class Detector {
     this.ctx = this.canvas.getContext("2d", { willReadFrequently: true });
   }
 
-  async load(modelUrl, classesUrl) {
+  // wasmPaths: URL of the folder holding onnxruntime-web's .wasm/.mjs files.
+  async load(modelUrl, classesUrl, { wasmPaths }) {
     this.classNames = await (await fetch(classesUrl)).json();
-    ort.env.wasm.wasmPaths = new URL("../vendor/", import.meta.url).href;
+    ort.env.wasm.wasmPaths = wasmPaths;
     ort.env.wasm.numThreads = 1; // multi-threading needs cross-origin isolation
     this.session = await ort.InferenceSession.create(modelUrl, {
       executionProviders: ["wasm"],
